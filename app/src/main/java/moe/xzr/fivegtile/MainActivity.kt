@@ -149,33 +149,13 @@ class MainActivity : ComponentActivity() {
                 Column(modifier = Modifier.padding(2.5.dp)) {
                     Item(
                         title = "libsu",
-                        subtitle = "Apache License 2.0\n" +
-                                "https://github.com/topjohnwu/libsu",
+                        subtitle = "Apache License 2.0\nhttps://github.com/topjohnwu/libsu",
                         link = "https://github.com/topjohnwu/libsu"
                     )
                     Item(
                         title = "Shizuku",
-                        subtitle = "Apache License 2.0\n" +
-                                "https://github.com/RikkaApps/Shizuku-API",
+                        subtitle = "Apache License 2.0\nhttps://github.com/RikkaApps/Shizuku-API",
                         link = "https://github.com/RikkaApps/Shizuku-API"
-                    )
-                    Item(
-                        title = "Android Jetpack",
-                        subtitle = "Apache License 2.0\n" +
-                                "https://android.googlesource.com/platform/frameworks/support",
-                        link = "https://android.googlesource.com/platform/frameworks/support"
-                    )
-                    Item(
-                        title = "Material Icons",
-                        subtitle = "Apache License 2.0\n" +
-                                "https://material.io/tools/icons",
-                        link = "https://material.io/tools/icons"
-                    )
-                    Item(
-                        title = "kotlin",
-                        subtitle = "Apache License 2.0\n" +
-                                "https://github.com/JetBrains/kotlin",
-                        link = "https://github.com/JetBrains/kotlin"
                     )
                 }
             }
@@ -195,13 +175,17 @@ class MainActivity : ComponentActivity() {
             }
         }
         AnimatedVisibility(visible = compatibilityState == MainViewModel.CompatibilityState.MISSING_PERMISSION) {
-            ErrorCard(title = stringResource(id = R.string.hint)) {
+            ErrorCard(title = "缺少权限") {
                 Text(text = "请点击允许“电话”权限，以便读取 SIM 卡信息并切换网络。授权后请重新打开应用。")
             }
         }
         AnimatedVisibility(visible = compatibilityState == MainViewModel.CompatibilityState.NOT_COMPATIBLE) {
             ErrorCard(title = stringResource(id = R.string.hint)) {
-                Text(text = stringResource(id = R.string.hint_not_compatible))
+                Column {
+                    Text(text = stringResource(id = R.string.hint_not_compatible))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "错误原因：${MainViewModel.lastErrorMessage ?: "未知"}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
     }
@@ -247,10 +231,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.size(30.dp, 30.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text(text = title, style = MaterialTheme.typography.titleMedium)
                 }
                 Box(modifier = Modifier.padding(5.dp)) {
                     content()
@@ -264,9 +245,7 @@ class MainActivity : ComponentActivity() {
         Crossfade(targetState = compatibilityState) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
+                modifier = Modifier.fillMaxWidth().padding(20.dp)
             ) {
                 Box(
                     modifier = Modifier.size(100.dp, 100.dp),
