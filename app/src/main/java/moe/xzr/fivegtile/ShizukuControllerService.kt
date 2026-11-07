@@ -14,7 +14,6 @@ class ShizukuControllerService : IFivegController.Stub() {
         private const val COMMAND_TIMEOUT_SECONDS = 5L
     }
 
-    constructor() : super()
     constructor(context: Context) : super()
 
     override fun getBackendType(): Int = 2
