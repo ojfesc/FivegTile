@@ -4,22 +4,21 @@ import java.util.Locale
 
 /**
  * 生成 cmd phone 命令并解析系统返回的网络类型列表。
- * 只修改 NR bit，保留其他制式。
+ * 注意：-s 参数直接接收 subId（订阅 ID），不需要转换成 slotId。
  */
 object NetworkCommands {
 
     const val NR_BIT = 1L shl 19
 
-    fun get(slot: Int): String {
-        require(slot >= 0) { "invalid slot: $slot" }
-        // 显式指定 --user 0 以兼容部分严格的系统环境
-        return "cmd phone get-allowed-network-types-for-users --user 0 -s $slot"
+    fun get(subId: Int): String {
+        require(subId >= 0) { "invalid subId: $subId" }
+        return "cmd phone get-allowed-network-types-for-users --user 0 -s $subId"
     }
 
-    fun set(slot: Int, mask: Long): String {
-        require(slot >= 0) { "invalid slot: $slot" }
+    fun set(subId: Int, mask: Long): String {
+        require(subId >= 0) { "invalid subId: $subId" }
         require(mask != 0L) { "network mask empty" }
-        return "cmd phone set-allowed-network-types-for-users --user 0 -s $slot ${mask.toString(2)}"
+        return "cmd phone set-allowed-network-types-for-users --user 0 -s $subId ${mask.toString(2)}"
     }
 
     fun parseMask(output: String): Long {
