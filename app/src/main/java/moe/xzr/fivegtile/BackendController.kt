@@ -14,12 +14,6 @@ import java.util.concurrent.Executors
 
 /**
  * 客户端统一入口。
- *
- * 优先使用 Shizuku/Sui，不可用时回退到 Root；
- * 两者都不可用时回调 null。
- *
- * 检测和绑定在后台线程执行，回调统一 post 到主线程，
- * 避免 Utils.isRootGranted() 中的 Shell.getShell() 阻塞 UI。
  */
 object BackendController {
 
@@ -98,7 +92,7 @@ object BackendController {
 
                 override fun onServiceDisconnected(name: ComponentName?) {
                     synchronized(this@BackendController) {
-                        if (controller === controller) controller = null
+                        controller = null
                     }
                     Log.w(TAG, "Shizuku UserService disconnected")
                 }
