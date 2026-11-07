@@ -91,7 +91,7 @@ class FivegControllerService : RootService() {
 
         override fun getBackendType(): Int = 1
 
-        override fun compatibilityCheckWithMessage(subId: Int): String {
+        override fun compatibilityCheckWithMessage(subId: Int, slotId: Int): String {
             return try {
                 initReflectionMethods()
 
@@ -120,7 +120,7 @@ class FivegControllerService : RootService() {
             }
         }
 
-        override fun getFivegEnabled(subId: Int): Boolean {
+        override fun getFivegEnabled(subId: Int, slotId: Int): Boolean {
             return try {
                 initReflectionMethods()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -137,7 +137,7 @@ class FivegControllerService : RootService() {
             }
         }
 
-        override fun setFivegEnabled(subId: Int, enabled: Boolean) {
+        override fun setFivegEnabled(subId: Int, slotId: Int, enabled: Boolean) {
             try {
                 initReflectionMethods()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
