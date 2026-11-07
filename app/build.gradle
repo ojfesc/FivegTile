@@ -25,11 +25,25 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            // 优先从环境变量读取（CI 环境），否则保留为空（本地环境回退到 debug）
+            def storeFilePath = System.getenv("RELEASE_STORE_FILE")
+            if (storeFilePath != null) {
+                storeFile file(storeFilePath)
+                storePassword System.getenv("RELEASE_STORE_PASSWORD")
+                keyAlias System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             shrinkResources true
-            signingConfig signingConfigs.debug
+            // 如果有配置 release 签名环境变量则使用，否则回退到 debug 以便本地无密钥时仍可构建
+            signingConfig System.getenv("RELEASE_STORE_FILE") != null ? signingConfigs.release : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
