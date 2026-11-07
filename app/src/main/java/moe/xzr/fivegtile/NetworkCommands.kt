@@ -4,7 +4,7 @@ import java.util.Locale
 
 /**
  * 生成 cmd phone 命令并解析系统返回的网络类型列表。
- * 注意：-s 参数直接接收 subId（订阅 ID）。
+ * 注意：-s 参数直接接收 subId（订阅 ID），且大多数系统不支持 --user 参数。
  */
 object NetworkCommands {
 
@@ -12,14 +12,15 @@ object NetworkCommands {
 
     fun get(subId: Int): String {
         require(subId >= 0) { "invalid subId: $subId" }
-        return "cmd phone get-allowed-network-types-for-users --user 0 -s $subId"
+        // 移除 --user 0，直接使用 -s subId
+        return "cmd phone get-allowed-network-types-for-users -s $subId"
     }
 
     fun set(subId: Int, mask: Long): String {
         require(subId >= 0) { "invalid subId: $subId" }
         require(mask != 0L) { "network mask empty" }
-        // Kotlin 中 Long 转二进制字符串必须用 toString(2)，没有 toBinaryString
-        return "cmd phone set-allowed-network-types-for-users --user 0 -s $subId ${mask.toString(2)}"
+        // Kotlin 中 Long 转二进制字符串必须用 toString(2)
+        return "cmd phone set-allowed-network-types-for-users -s $subId ${mask.toString(2)}"
     }
 
     fun parseMask(output: String): Long {
