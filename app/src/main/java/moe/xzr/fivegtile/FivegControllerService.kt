@@ -1,90 +1,20 @@
 package moe.xzr.fivegtile
 
-import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
-import android.os.ServiceManager
 import android.util.Log
 import com.topjohnwu.superuser.ipc.RootService
-import java.lang.reflect.Method
+import java.util.concurrent.TimeUnit
 
+/**
+ * Root 后端的 5G 控制服务。
+ * 同样通过 cmd phone 命令操作，确保与 Shizuku 后端逻辑完全一致。
+ */
 class FivegControllerService : RootService() {
+
     companion object {
         private const val TAG = "FivegControllerService"
-
-        private val telephonyService by lazy {
-            ServiceManager.getService(Context.TELEPHONY_SERVICE)
-        }
-
-        private val iTelephony by lazy {
-            val asInterfaceMethod = Class.forName("com.android.internal.telephony.ITelephony\$Stub")
-                .getMethod("asInterface", IBinder::class.java)
-            asInterfaceMethod.invoke(null, telephonyService)
-        }
-
-        private val reasonUser by lazy {
-            Class.forName("android.telephony.TelephonyManager")
-                .getDeclaredField("ALLOWED_NETWORK_TYPES_REASON_USER")
-                .getInt(null)
-        }
-
-        private val typeNr by lazy {
-            Class.forName("android.telephony.TelephonyManager")
-                .getDeclaredField("NETWORK_TYPE_BITMASK_NR")
-                .getLong(null)
-        }
-
-        @delegate:SuppressLint("PrivateApi", "BlockedPrivateApi")
-        private val modeLte by lazy {
-            Class.forName("com.android.internal.telephony.RILConstants")
-                .getDeclaredField("NETWORK_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA")
-                .getInt(null)
-        }
-
-        @delegate:SuppressLint("PrivateApi", "BlockedPrivateApi")
-        private val modeNr by lazy {
-            Class.forName("com.android.internal.telephony.RILConstants")
-                .getDeclaredField("NETWORK_MODE_NR_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA")
-                .getInt(null)
-        }
-
-        private var getAllowedNetworkTypesMethod: Method? = null
-        private var setAllowedNetworkTypesMethod: Method? = null
-        private var getPreferredNetworkTypeMethod: Method? = null
-        private var setPreferredNetworkTypeMethod: Method? = null
-
-        private fun initReflectionMethods() {
-            if (getAllowedNetworkTypesMethod != null) return
-
-            try {
-                val iTelephonyClass = iTelephony.javaClass
-                val methods = iTelephonyClass.methods
-
-                getAllowedNetworkTypesMethod = methods.find {
-                    it.name == "getAllowedNetworkTypesForReason" && it.parameterTypes.size == 2
-                }
-
-                setAllowedNetworkTypesMethod = methods.find {
-                    it.name == "setAllowedNetworkTypesForReason" &&
-                            it.parameterTypes.size >= 3 &&
-                            it.parameterTypes[0] == Int::class.javaPrimitiveType &&
-                            it.parameterTypes[1] == Int::class.javaPrimitiveType &&
-                            it.parameterTypes[2] == Long::class.javaPrimitiveType
-                }
-
-                getPreferredNetworkTypeMethod = methods.find {
-                    it.name == "getPreferredNetworkType" && it.parameterTypes.size == 1
-                }
-
-                setPreferredNetworkTypeMethod = methods.find {
-                    it.name == "setPreferredNetworkType" && it.parameterTypes.size == 2
-                }
-            } catch (e: Throwable) {
-                Log.e(TAG, "Failed to init reflection methods", e)
-            }
-        }
+        private const val COMMAND_TIMEOUT_SECONDS = 5L
     }
 
     override fun onBind(intent: Intent) = object : IFivegController.Stub() {
@@ -93,71 +23,61 @@ class FivegControllerService : RootService() {
 
         override fun compatibilityCheckWithMessage(subId: Int, slotId: Int): String {
             return try {
-                initReflectionMethods()
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val getMethod = getAllowedNetworkTypesMethod ?: return "get method not found"
-                    val setMethod = setAllowedNetworkTypesMethod ?: return "set method not found"
-                    val currentTypes = getMethod.invoke(iTelephony, subId, reasonUser) as Long
-                    if (setMethod.parameterTypes.size >= 4) {
-                        setMethod.invoke(iTelephony, subId, reasonUser, currentTypes, "moe.xzr.fivegtile")
-                    } else {
-                        setMethod.invoke(iTelephony, subId, reasonUser, currentTypes)
-                    }
-                    "OK"
-                } else {
-                    modeLte
-                    modeNr
-                    val getMethod = getPreferredNetworkTypeMethod ?: return "get method not found"
-                    val setMethod = setPreferredNetworkTypeMethod ?: return "set method not found"
-                    val currentType = getMethod.invoke(iTelephony, subId) as Int
-                    setMethod.invoke(iTelephony, subId, currentType)
-                    "OK"
-                }
-            } catch (e: Throwable) {
-                Log.e(TAG, "Compatibility check failed", e)
+                if (slotId < 0) throw IllegalArgumentException("无效的卡槽，slotId=$slotId")
+                val output = exec(NetworkCommands.get(slotId))
+                NetworkCommands.parseMask(output)
+                "OK"
+            } catch (e: Exception) {
+                Log.e(TAG, "compatibilityCheck failed", e)
                 e.message ?: e.javaClass.simpleName
             }
         }
 
         override fun getFivegEnabled(subId: Int, slotId: Int): Boolean {
             return try {
-                initReflectionMethods()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val getMethod = getAllowedNetworkTypesMethod ?: return false
-                    val types = getMethod.invoke(iTelephony, subId, reasonUser) as Long
-                    types and typeNr != 0L
-                } else {
-                    val getMethod = getPreferredNetworkTypeMethod ?: return false
-                    val currentType = getMethod.invoke(iTelephony, subId) as Int
-                    currentType == modeNr
-                }
-            } catch (e: Throwable) {
+                if (slotId < 0) return false
+                NetworkCommands.hasNr(exec(NetworkCommands.get(slotId)))
+            } catch (e: Exception) {
+                Log.e(TAG, "getFivegEnabled failed", e)
                 false
             }
         }
 
         override fun setFivegEnabled(subId: Int, slotId: Int, enabled: Boolean) {
             try {
-                initReflectionMethods()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val getMethod = getAllowedNetworkTypesMethod ?: return
-                    val setMethod = setAllowedNetworkTypesMethod ?: return
-                    var curTypes = getMethod.invoke(iTelephony, subId, reasonUser) as Long
-                    curTypes = if (enabled) curTypes or typeNr else curTypes and typeNr.inv()
-                    if (setMethod.parameterTypes.size >= 4) {
-                        setMethod.invoke(iTelephony, subId, reasonUser, curTypes, "moe.xzr.fivegtile")
-                    } else {
-                        setMethod.invoke(iTelephony, subId, reasonUser, curTypes)
-                    }
-                } else {
-                    val setMethod = setPreferredNetworkTypeMethod ?: return
-                    val targetMode = if (enabled) modeNr else modeLte
-                    setMethod.invoke(iTelephony, subId, targetMode)
+                if (slotId < 0) throw IllegalArgumentException("无效的卡槽，slotId=$slotId")
+                val mask = NetworkCommands.parseMask(exec(NetworkCommands.get(slotId)))
+                val target = if (enabled) mask or NetworkCommands.NR_BIT
+                else mask and NetworkCommands.NR_BIT.inv()
+                if (target == 0L) {
+                    throw IllegalStateException("网络类型为空，请先在系统设置选择自动网络模式")
                 }
-            } catch (e: Throwable) {
+                exec(NetworkCommands.set(slotId, target))
+            } catch (e: Exception) {
                 Log.e(TAG, "setFivegEnabled failed", e)
             }
+        }
+
+        private fun exec(command: String): String {
+            // RootService 进程本身拥有 root 身份，直接执行命令即可
+            val process = ProcessBuilder("/system/bin/sh", "-c", command)
+                .redirectErrorStream(true)
+                .start()
+
+            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+
+            if (!process.waitFor(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                throw IllegalStateException("系统命令超时")
+            }
+
+            val exitCode = process.exitValue()
+            process.destroy()
+
+            if (exitCode != 0) {
+                throw IllegalStateException("exit=$exitCode $output")
+            }
+            return output
         }
     }
 }
