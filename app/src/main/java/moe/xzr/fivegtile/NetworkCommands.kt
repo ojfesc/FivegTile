@@ -12,13 +12,14 @@ object NetworkCommands {
 
     fun get(slot: Int): String {
         require(slot >= 0) { "invalid slot: $slot" }
-        return "cmd phone get-allowed-network-types-for-users -s $slot"
+        // 显式指定 --user 0 以兼容部分严格的系统环境
+        return "cmd phone get-allowed-network-types-for-users --user 0 -s $slot"
     }
 
     fun set(slot: Int, mask: Long): String {
         require(slot >= 0) { "invalid slot: $slot" }
         require(mask != 0L) { "network mask empty" }
-        return "cmd phone set-allowed-network-types-for-users -s $slot ${mask.toString(2)}"
+        return "cmd phone set-allowed-network-types-for-users --user 0 -s $slot ${mask.toString(2)}"
     }
 
     fun parseMask(output: String): Long {
