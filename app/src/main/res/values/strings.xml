@@ -10,6 +10,6 @@
     <string name="source_code">Source Code</string>
     <string name="open_source_licenses">Open Source Licenses</string>
     <string name="fiveg">5G</string>
-    <string name="hint_no_root">Root permission is needed for this app to work properly :(</string>
+    <string name="hint_no_root">Shizuku permission or root access is needed for this app to work properly :(</string>
     <string name="hint_not_compatible">Sorry but this app is not compatible with your system. Consider to open an issue in the Github repository with enough information :)</string>
 </resources>
