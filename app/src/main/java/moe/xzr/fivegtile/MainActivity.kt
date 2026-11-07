@@ -1,10 +1,13 @@
 package moe.xzr.fivegtile
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -23,22 +26,62 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import moe.xzr.fivegtile.ui.theme.FivegTileTheme
+import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<MainViewModel>()
 
+    private val phonePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private val shizukuPermissionListener =
+        Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+            if (requestCode == ShizukuBackend.REQUEST_CODE &&
+                grantResult == PackageManager.PERMISSION_GRANTED
+            ) {
+                // 授权成功后重建 Activity，让 produceState 重新检测后端。
+                recreate()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
         setContent {
             MainComposable(viewModel.getCompatibilityState())
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        requestRuntimePermissions()
+    }
+
+    override fun onDestroy() {
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+        super.onDestroy()
+    }
+
+    /**
+     * READ_PHONE_STATE 用于把 subId 映射到物理卡槽；
+     * Shizuku 已运行但未授权时，前台请求一次权限。
+     */
+    private fun requestRuntimePermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            phonePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+        }
+        if (ShizukuBackend.isBinderAlive() && !ShizukuBackend.isReady()) {
+            ShizukuBackend.requestPermission()
         }
     }
 
     @Composable
     private fun MainComposable(compatibilityState: MainViewModel.CompatibilityState) {
         FivegTileTheme {
-            // A surface container using the 'background' color from the theme
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
@@ -113,6 +156,12 @@ class MainActivity : ComponentActivity() {
                         subtitle = "Apache License 2.0\n" +
                                 "https://github.com/topjohnwu/libsu",
                         link = "https://github.com/topjohnwu/libsu"
+                    )
+                    Item(
+                        title = "Shizuku",
+                        subtitle = "Apache License 2.0\n" +
+                                "https://github.com/RikkaApps/Shizuku-API",
+                        link = "https://github.com/RikkaApps/Shizuku-API"
                     )
                     Item(
                         title = "Android Jetpack",
