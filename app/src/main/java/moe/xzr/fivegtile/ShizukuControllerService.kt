@@ -6,16 +6,17 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Shizuku / Sui 后端的 5G 控制服务。
- * 注意：类头部保留 () 隐式调用父类无参构造，带 Context 的构造必须委托给 this()。
+ * 在继承 Java 抽象类时，不写主构造器 ()，而是在下面显式写次构造器。
  */
-class ShizukuControllerService : IFivegController.Stub() {
+class ShizukuControllerService : IFivegController.Stub {
 
     companion object {
         private const val TAG = "ShizukuControllerService"
         private const val COMMAND_TIMEOUT_SECONDS = 5L
     }
 
-    constructor(context: Context) : this()
+    constructor() : super()
+    constructor(context: Context) : super()
 
     override fun getBackendType(): Int = 2
 
