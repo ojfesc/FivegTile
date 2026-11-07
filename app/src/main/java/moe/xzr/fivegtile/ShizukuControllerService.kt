@@ -4,10 +4,6 @@ import android.content.Context
 import android.util.Log
 import java.util.concurrent.TimeUnit
 
-/**
- * Shizuku / Sui 后端的 5G 控制服务。
- */
-// 注意：这里去掉了 ()，由下面的 constructor 负责初始化父类
 class ShizukuControllerService : IFivegController.Stub {
 
     companion object {
@@ -15,29 +11,25 @@ class ShizukuControllerService : IFivegController.Stub {
         private const val COMMAND_TIMEOUT_SECONDS = 5L
     }
 
-    // Shizuku 会通过反射寻找无参构造或接收 Context 的构造
     constructor() : super()
     constructor(context: Context) : super()
 
     override fun getBackendType(): Int = 2
 
-    override fun compatibilityCheck(subId: Int): Boolean {
+    override fun compatibilityCheckWithMessage(subId: Int): String {
         return try {
-            val slot = SlotHelper.slotForSubId(subId)
-            if (slot < 0) return false
-            NetworkCommands.parseMask(exec(NetworkCommands.get(slot)))
-            true
+            val output = exec(NetworkCommands.get(subId))
+            NetworkCommands.parseMask(output)
+            "OK"
         } catch (e: Exception) {
             Log.e(TAG, "compatibilityCheck failed", e)
-            false
+            e.message ?: e.javaClass.simpleName
         }
     }
 
     override fun getFivegEnabled(subId: Int): Boolean {
         return try {
-            val slot = SlotHelper.slotForSubId(subId)
-            if (slot < 0) return false
-            NetworkCommands.hasNr(exec(NetworkCommands.get(slot)))
+            NetworkCommands.hasNr(exec(NetworkCommands.get(subId)))
         } catch (e: Exception) {
             Log.e(TAG, "getFivegEnabled failed", e)
             false
@@ -46,15 +38,13 @@ class ShizukuControllerService : IFivegController.Stub {
 
     override fun setFivegEnabled(subId: Int, enabled: Boolean) {
         try {
-            val slot = SlotHelper.slotForSubId(subId)
-            if (slot < 0) throw IllegalArgumentException("invalid subId: $subId")
-            val mask = NetworkCommands.parseMask(exec(NetworkCommands.get(slot)))
+            val mask = NetworkCommands.parseMask(exec(NetworkCommands.get(subId)))
             val target = if (enabled) mask or NetworkCommands.NR_BIT
             else mask and NetworkCommands.NR_BIT.inv()
             if (target == 0L) {
                 throw IllegalStateException("网络类型为空，请先在系统设置选择自动网络模式")
             }
-            exec(NetworkCommands.set(slot, target))
+            exec(NetworkCommands.set(subId, target))
         } catch (e: Exception) {
             Log.e(TAG, "setFivegEnabled failed", e)
         }
