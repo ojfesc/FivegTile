@@ -63,6 +63,8 @@ dependencies {
     implementation 'androidx.compose.material3:material3'
     implementation "com.github.topjohnwu.libsu:core:${libsuVersion}"
     implementation "com.github.topjohnwu.libsu:service:${libsuVersion}"
+    implementation "dev.rikka.shizuku:api:${shizukuVersion}"
+    implementation "dev.rikka.shizuku:provider:${shizukuVersion}"
     debugImplementation 'androidx.compose.ui:ui-tooling'
 
 }
