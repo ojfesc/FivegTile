@@ -1,21 +1,12 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Shizuku 客户端与 provider：release 混淆会破坏 Binder 和权限发现。
+-keep class rikka.shizuku.** { *; }
+-keep class moe.shizuku.** { *; }
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# AIDL 生成的接口与 Stub：跨进程调用依赖类名和签名。
+-keep interface moe.xzr.fivegtile.IFivegController { *; }
+-keep class moe.xzr.fivegtile.IFivegController$* { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# RootService 与 UserService：Manifest 按类名绑定，Shizuku 通过反射实例化。
+-keep class moe.xzr.fivegtile.FivegControllerService { *; }
+-keep class moe.xzr.fivegtile.ShizukuControllerService { *; }
+-keep class moe.xzr.fivegtile.FivegTileService { *; }
