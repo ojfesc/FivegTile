@@ -45,8 +45,8 @@ jobs:
           # 该修改只发生在 CI 工作区，不会提交回仓库。
           echo "::warning::android-37 unavailable, falling back to android-35"
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
-          sed -i 's/compileSdk 37/compileSdk 35/' app/build.gradle hiddenapi/build.gradle
-          sed -i 's/targetSdk 37/targetSdk 35/' app/build.gradle hiddenapi/build.gradle
+          sed -i 's/compileSdk 37/compileSdk 35/' app/build.gradle
+          sed -i 's/targetSdk 37/targetSdk 35/' app/build.gradle
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
