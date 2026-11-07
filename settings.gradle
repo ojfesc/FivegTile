@@ -15,4 +15,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "FivegTile"
 include ':app'
-include ':hiddenapi'
