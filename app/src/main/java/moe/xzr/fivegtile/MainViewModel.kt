@@ -46,13 +46,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     value = CompatibilityState.NOT_COMPATIBLE
                 } else {
                     val subId = SubscriptionManager.getDefaultDataSubscriptionId()
-                    if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+                    val slotId = try {
+                        SubscriptionManager.getSlotIndex(subId)
+                    } catch (e: Exception) {
+                        SubscriptionManager.INVALID_SIM_SLOT_INDEX
+                    }
+
+                    if (!SubscriptionManager.isValidSubscriptionId(subId) || 
+                        slotId == SubscriptionManager.INVALID_SIM_SLOT_INDEX
+                    ) {
                         value = CompatibilityState.MISSING_PERMISSION
                         return@bind
                     }
                     
                     try {
-                        val msg = controller.compatibilityCheckWithMessage(subId)
+                        val msg = controller.compatibilityCheckWithMessage(subId, slotId)
                         if (msg == "OK") {
                             value = CompatibilityState.COMPATIBLE
                         } else {
