@@ -17,16 +17,24 @@ class FivegTileService : TileService() {
         }
 
         val subId = SubscriptionManager.getDefaultDataSubscriptionId()
-        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+        val slotId = try {
+            SubscriptionManager.getSlotIndex(subId)
+        } catch (e: Exception) {
+            SubscriptionManager.INVALID_SIM_SLOT_INDEX
+        }
+
+        if (!SubscriptionManager.isValidSubscriptionId(subId) || 
+            slotId == SubscriptionManager.INVALID_SIM_SLOT_INDEX
+        ) {
             setUnavailable()
             return@runWithController
         }
 
-        val checkResult = it.compatibilityCheckWithMessage(subId)
+        val checkResult = it.compatibilityCheckWithMessage(subId, slotId)
 
         qsTile.state = when {
             checkResult != "OK" -> Tile.STATE_UNAVAILABLE
-            it.getFivegEnabled(subId) -> Tile.STATE_ACTIVE
+            it.getFivegEnabled(subId, slotId) -> Tile.STATE_ACTIVE
             else -> Tile.STATE_INACTIVE
         }
         qsTile.updateTile()
@@ -46,13 +54,22 @@ class FivegTileService : TileService() {
         super.onClick()
         runWithController {
             val subId = SubscriptionManager.getDefaultDataSubscriptionId()
-            if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            val slotId = try {
+                SubscriptionManager.getSlotIndex(subId)
+            } catch (e: Exception) {
+                SubscriptionManager.INVALID_SIM_SLOT_INDEX
+            }
+
+            if (!SubscriptionManager.isValidSubscriptionId(subId) || 
+                slotId == SubscriptionManager.INVALID_SIM_SLOT_INDEX
+            ) {
                 setUnavailable()
                 return@runWithController
             }
+
             when (qsTile.state) {
-                Tile.STATE_INACTIVE -> it?.setFivegEnabled(subId, true)
-                Tile.STATE_ACTIVE -> it?.setFivegEnabled(subId, false)
+                Tile.STATE_INACTIVE -> it?.setFivegEnabled(subId, slotId, true)
+                Tile.STATE_ACTIVE -> it?.setFivegEnabled(subId, slotId, false)
             }
             refreshState()
         }
