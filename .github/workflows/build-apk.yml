@@ -1,83 +1,109 @@
-plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-    id 'org.jetbrains.kotlin.plugin.compose'
-}
+name: Build APK
 
-android {
-    namespace 'moe.xzr.fivegtile'
-    compileSdk 37
+on:
+  workflow_dispatch:
 
-    defaultConfig {
-        applicationId "moe.xzr.fivegtile"
-        minSdk 29
-        targetSdk 37
-        versionCode 3
-        versionName "1.2"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        vectorDrawables {
-            useSupportLibrary true
-        }
-        
-        // 只保留 arm64-v8a 架构，减小 APK 体积
-        ndk {
-            abiFilters 'arm64-v8a'
-        }
-    }
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-    signingConfigs {
-        release {
-            // 从环境变量读取签名配置
-            def storeFilePath = System.getenv("RELEASE_STORE_FILE")
-            if (storeFilePath != null) {
-                storeFile file(storeFilePath)
-                storePassword System.getenv("RELEASE_STORE_PASSWORD")
-                keyAlias System.getenv("RELEASE_KEY_ALIAS")
-                keyPassword System.getenv("RELEASE_KEY_PASSWORD")
-            }
-        }
-    }
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
 
-    buildTypes {
-        release {
-            minifyEnabled true
-            shrinkResources true
-            // 如果有环境变量则使用 release 签名，否则回退到 debug 以便本地无密钥时编译
-            signingConfig System.getenv("RELEASE_STORE_FILE") != null ? signingConfigs.release : signingConfigs.debug
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-    buildFeatures {
-        compose true
-        aidl true
-    }
-    packaging {
-        resources {
-            excludes += '/META-INF/{AL2.0,LGPL2.1}'
-        }
-    }
-}
+      - name: Install Android SDK 37 with fallback to 36
+        shell: bash
+        run: |
+          set -euo pipefail
 
-dependencies {
+          # 优先尝试稳定渠道的 android-37。
+          if sdkmanager "platforms;android-37" "build-tools;37.0.0" >/dev/null 2>&1; then
+            echo "Installed android-37 from stable channel"
+            exit 0
+          fi
 
-    implementation 'androidx.core:core-ktx:1.15.0'
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'
-    implementation 'androidx.activity:activity-compose:1.9.3'
-    implementation platform('androidx.compose:compose-bom:2024.12.01')
-    implementation 'androidx.compose.ui:ui'
-    implementation 'androidx.compose.ui:ui-tooling-preview'
-    implementation 'androidx.compose.material3:material3'
-    implementation "com.github.topjohnwu.libsu:core:${libsuVersion}"
-    implementation "com.github.topjohnwu.libsu:service:${libsuVersion}"
-    implementation "dev.rikka.shizuku:api:${shizukuVersion}"
-    implementation "dev.rikka.shizuku:provider:${shizukuVersion}"
-    debugImplementation 'androidx.compose.ui:ui-tooling'
+          # 稳定渠道没有时，尝试预览渠道。
+          if sdkmanager --channel=3 "platforms;android-37" "build-tools;37.0.0" >/dev/null 2>&1; then
+            echo "Installed android-37 from preview channel"
+            exit 0
+          fi
 
-}
+          # AGP 8.7.3 最高支持 SDK 35，因此回退到 android-35 以保证编译成功。
+          # 该修改只发生在 CI 工作区，不会提交回仓库。
+          echo "::warning::android-37 unavailable, falling back to android-35"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sed -i 's/compileSdk 37/compileSdk 35/' app/build.gradle
+          sed -i 's/targetSdk 37/targetSdk 35/' app/build.gradle
+
+      - name: Decode release keystore
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug and release APKs
+        env:
+          RELEASE_STORE_FILE: release.keystore
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:assembleRelease --stacktrace
+
+      - name: Collect version info
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 从 app/build.gradle 读取 versionName 和 versionCode，用于产物命名。
+          VERSION_NAME=$(grep -oP "versionName\s+[\"']\K[^\"']+" app/build.gradle | head -n1)
+          VERSION_CODE=$(grep -oP "versionCode\s+\K[0-9]+" app/build.gradle | head -n1)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="FivegTile-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code }}-${{ steps.version.outputs.short_sha }}"
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/${BASE}-debug.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/${BASE}-release.apk"
+          ls -l dist
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: FivegTile-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.short_sha }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          # 使用固定 tag，每次推送覆盖，便于直接下载最新 APK。
+          tag_name: latest
+          name: Latest build
+          body: |
+            自动构建自 ${{ github.sha }}
+            版本：${{ steps.version.outputs.version_name }} (${{ steps.version.outputs.version_code }})
+          files: dist/*.apk
+          make_latest: true
+          prerelease: false
