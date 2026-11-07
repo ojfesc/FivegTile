@@ -4,23 +4,22 @@ import java.util.Locale
 
 /**
  * 生成 cmd phone 命令并解析系统返回的网络类型列表。
- * 注意：-s 参数直接接收 subId（订阅 ID），且大多数系统不支持 --user 参数。
+ * 注意：-s 参数接收的是物理卡槽 SLOT_ID（0 或 1）。
  */
 object NetworkCommands {
 
     const val NR_BIT = 1L shl 19
 
-    fun get(subId: Int): String {
-        require(subId >= 0) { "invalid subId: $subId" }
-        // 移除 --user 0，直接使用 -s subId
-        return "cmd phone get-allowed-network-types-for-users -s $subId"
+    fun get(slot: Int): String {
+        require(slot >= 0) { "invalid slot: $slot" }
+        return "cmd phone get-allowed-network-types-for-users -s $slot"
     }
 
-    fun set(subId: Int, mask: Long): String {
-        require(subId >= 0) { "invalid subId: $subId" }
+    fun set(slot: Int, mask: Long): String {
+        require(slot >= 0) { "invalid slot: $slot" }
         require(mask != 0L) { "network mask empty" }
         // Kotlin 中 Long 转二进制字符串必须用 toString(2)
-        return "cmd phone set-allowed-network-types-for-users -s $subId ${mask.toString(2)}"
+        return "cmd phone set-allowed-network-types-for-users -s $slot ${mask.toString(2)}"
     }
 
     fun parseMask(output: String): Long {
