@@ -19,11 +19,10 @@ class ShizukuControllerService : IFivegController.Stub {
 
     override fun getBackendType(): Int = 2
 
-    override fun compatibilityCheckWithMessage(subId: Int): String {
+    override fun compatibilityCheckWithMessage(subId: Int, slotId: Int): String {
         return try {
-            val slot = SlotHelper.slotForSubId(subId)
-            if (slot < 0) throw IllegalArgumentException("无法获取卡槽索引，subId=$subId")
-            val output = exec(NetworkCommands.get(slot))
+            if (slotId < 0) throw IllegalArgumentException("无效的卡槽，slotId=$slotId")
+            val output = exec(NetworkCommands.get(slotId))
             NetworkCommands.parseMask(output)
             "OK"
         } catch (e: Exception) {
@@ -32,28 +31,26 @@ class ShizukuControllerService : IFivegController.Stub {
         }
     }
 
-    override fun getFivegEnabled(subId: Int): Boolean {
+    override fun getFivegEnabled(subId: Int, slotId: Int): Boolean {
         return try {
-            val slot = SlotHelper.slotForSubId(subId)
-            if (slot < 0) return false
-            NetworkCommands.hasNr(exec(NetworkCommands.get(slot)))
+            if (slotId < 0) return false
+            NetworkCommands.hasNr(exec(NetworkCommands.get(slotId)))
         } catch (e: Exception) {
             Log.e(TAG, "getFivegEnabled failed", e)
             false
         }
     }
 
-    override fun setFivegEnabled(subId: Int, enabled: Boolean) {
+    override fun setFivegEnabled(subId: Int, slotId: Int, enabled: Boolean) {
         try {
-            val slot = SlotHelper.slotForSubId(subId)
-            if (slot < 0) throw IllegalArgumentException("无法获取卡槽索引，subId=$subId")
-            val mask = NetworkCommands.parseMask(exec(NetworkCommands.get(slot)))
+            if (slotId < 0) throw IllegalArgumentException("无效的卡槽，slotId=$slotId")
+            val mask = NetworkCommands.parseMask(exec(NetworkCommands.get(slotId)))
             val target = if (enabled) mask or NetworkCommands.NR_BIT
             else mask and NetworkCommands.NR_BIT.inv()
             if (target == 0L) {
                 throw IllegalStateException("网络类型为空，请先在系统设置选择自动网络模式")
             }
-            exec(NetworkCommands.set(slot, target))
+            exec(NetworkCommands.set(slotId, target))
         } catch (e: Exception) {
             Log.e(TAG, "setFivegEnabled failed", e)
         }
