@@ -1,58 +1,41 @@
 package moe.xzr.fivegtile
 
-import android.content.ComponentName
-import android.content.Intent
-import android.content.ServiceConnection
-import android.os.IBinder
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.telephony.SubscriptionManager
-import com.topjohnwu.superuser.ipc.RootService
 
 class FivegTileService : TileService() {
-    private var fivegController: IFivegController? = null
 
-    private fun runWithFivegController(what: (IFivegController?) -> Unit) {
-        if (!Utils.isRootGranted()) {
-            what(null)
-            return
-        }
-        if (fivegController != null) {
-            what(fivegController)
-        } else {
-            RootService.bind(
-                Intent(this@FivegTileService, FivegControllerService::class.java),
-                object : ServiceConnection {
-                    override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                        fivegController = IFivegController.Stub.asInterface(service)
-                        what(fivegController)
-                    }
-
-                    override fun onServiceDisconnected(name: ComponentName?) {
-
-                    }
-                })
-        }
+    private fun runWithController(what: (IFivegController?) -> Unit) {
+        BackendController.bind(this) { controller -> what(controller) }
     }
 
-    private fun refreshState() = runWithFivegController {
+    private fun refreshState() = runWithController {
         if (it == null) {
-            qsTile.state = Tile.STATE_UNAVAILABLE
-            qsTile.updateTile()
-            return@runWithFivegController
+            setUnavailable()
+            return@runWithController
         }
+
+        // 每次刷新重新读取默认数据订阅，
+        // 用户在系统设置中切换默认数据卡后 subId 会变化。
         val subId = SubscriptionManager.getDefaultDataSubscriptionId()
-        qsTile.state = if (!it.compatibilityCheck(subId)) {
-            Tile.STATE_UNAVAILABLE
-        } else {
-            if (it.getFivegEnabled(subId))
-                Tile.STATE_ACTIVE
-            else
-                Tile.STATE_INACTIVE
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            setUnavailable()
+            return@runWithController
+        }
+
+        qsTile.state = when {
+            !it.compatibilityCheck(subId) -> Tile.STATE_UNAVAILABLE
+            it.getFivegEnabled(subId) -> Tile.STATE_ACTIVE
+            else -> Tile.STATE_INACTIVE
         }
         qsTile.updateTile()
     }
 
+    private fun setUnavailable() {
+        qsTile.state = Tile.STATE_UNAVAILABLE
+        qsTile.updateTile()
+    }
 
     override fun onStartListening() {
         super.onStartListening()
@@ -61,12 +44,15 @@ class FivegTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        runWithFivegController {
+        runWithController {
             val subId = SubscriptionManager.getDefaultDataSubscriptionId()
-            if (qsTile.state == Tile.STATE_INACTIVE) {
-                it?.setFivegEnabled(subId, true)
-            } else if (qsTile.state == Tile.STATE_ACTIVE) {
-                it?.setFivegEnabled(subId, false)
+            if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+                setUnavailable()
+                return@runWithController
+            }
+            when (qsTile.state) {
+                Tile.STATE_INACTIVE -> it?.setFivegEnabled(subId, true)
+                Tile.STATE_ACTIVE -> it?.setFivegEnabled(subId, false)
             }
             refreshState()
         }
