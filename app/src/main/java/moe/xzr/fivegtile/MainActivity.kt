@@ -36,8 +36,8 @@ class MainActivity : ComponentActivity() {
     private val phonePermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    private val shizukuPermissionListener =
-        Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+    private val shizukuPermissionListener = object : Shizuku.OnRequestPermissionResultListener {
+        override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
             if (requestCode == ShizukuBackend.REQUEST_CODE &&
                 grantResult == PackageManager.PERMISSION_GRANTED
             ) {
@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
                 recreate()
             }
         }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
