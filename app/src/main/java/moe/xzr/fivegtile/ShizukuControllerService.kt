@@ -7,13 +7,16 @@ import java.util.concurrent.TimeUnit
 /**
  * Shizuku / Sui 后端的 5G 控制服务。
  */
-class ShizukuControllerService : IFivegController.Stub() {
+// 注意：这里去掉了 ()，由下面的 constructor 负责初始化父类
+class ShizukuControllerService : IFivegController.Stub {
 
     companion object {
         private const val TAG = "ShizukuControllerService"
         private const val COMMAND_TIMEOUT_SECONDS = 5L
     }
 
+    // Shizuku 会通过反射寻找无参构造或接收 Context 的构造
+    constructor() : super()
     constructor(context: Context) : super()
 
     override fun getBackendType(): Int = 2
