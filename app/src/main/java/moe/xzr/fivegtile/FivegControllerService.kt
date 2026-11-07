@@ -10,12 +10,6 @@ import android.util.Log
 import com.topjohnwu.superuser.ipc.RootService
 import java.lang.reflect.Method
 
-/**
- * Root 后端的 5G 控制服务。
- *
- * TelephonyManager 在 RootService 进程中无法正确初始化，
- * 因此直接通过反射调用 telephony 服务，避免 AIDL 签名在 Android 17+ 上的不匹配。
- */
 class FivegControllerService : RootService() {
     companion object {
         private const val TAG = "FivegControllerService"
@@ -66,16 +60,12 @@ class FivegControllerService : RootService() {
 
             try {
                 val iTelephonyClass = iTelephony.javaClass
-                Log.d(TAG, "iTelephony class: ${iTelephonyClass.name}")
-
                 val methods = iTelephonyClass.methods
 
                 getAllowedNetworkTypesMethod = methods.find {
                     it.name == "getAllowedNetworkTypesForReason" && it.parameterTypes.size == 2
                 }
 
-                // Android 17+ 签名变为 (int, int, long, String)：boolean
-                // 旧版本是 (int, int, long)
                 setAllowedNetworkTypesMethod = methods.find {
                     it.name == "setAllowedNetworkTypesForReason" &&
                             it.parameterTypes.size >= 3 &&
@@ -101,41 +91,38 @@ class FivegControllerService : RootService() {
 
         override fun getBackendType(): Int = 1
 
-        override fun compatibilityCheck(subId: Int): Boolean {
+        override fun compatibilityCheckWithMessage(subId: Int): String {
             return try {
                 initReflectionMethods()
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val getMethod = getAllowedNetworkTypesMethod ?: return false
-                    val setMethod = setAllowedNetworkTypesMethod ?: return false
+                    val getMethod = getAllowedNetworkTypesMethod ?: return "get method not found"
+                    val setMethod = setAllowedNetworkTypesMethod ?: return "set method not found"
                     val currentTypes = getMethod.invoke(iTelephony, subId, reasonUser) as Long
                     if (setMethod.parameterTypes.size >= 4) {
-                        setMethod.invoke(
-                            iTelephony, subId, reasonUser, currentTypes, "moe.xzr.fivegtile"
-                        )
+                        setMethod.invoke(iTelephony, subId, reasonUser, currentTypes, "moe.xzr.fivegtile")
                     } else {
                         setMethod.invoke(iTelephony, subId, reasonUser, currentTypes)
                     }
-                    true
+                    "OK"
                 } else {
                     modeLte
                     modeNr
-                    val getMethod = getPreferredNetworkTypeMethod ?: return false
-                    val setMethod = setPreferredNetworkTypeMethod ?: return false
+                    val getMethod = getPreferredNetworkTypeMethod ?: return "get method not found"
+                    val setMethod = setPreferredNetworkTypeMethod ?: return "set method not found"
                     val currentType = getMethod.invoke(iTelephony, subId) as Int
                     setMethod.invoke(iTelephony, subId, currentType)
-                    true
+                    "OK"
                 }
             } catch (e: Throwable) {
                 Log.e(TAG, "Compatibility check failed", e)
-                false
+                e.message ?: e.javaClass.simpleName
             }
         }
 
         override fun getFivegEnabled(subId: Int): Boolean {
             return try {
                 initReflectionMethods()
-
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     val getMethod = getAllowedNetworkTypesMethod ?: return false
                     val types = getMethod.invoke(iTelephony, subId, reasonUser) as Long
@@ -146,7 +133,6 @@ class FivegControllerService : RootService() {
                     currentType == modeNr
                 }
             } catch (e: Throwable) {
-                Log.e(TAG, "getFivegEnabled failed", e)
                 false
             }
         }
@@ -154,17 +140,13 @@ class FivegControllerService : RootService() {
         override fun setFivegEnabled(subId: Int, enabled: Boolean) {
             try {
                 initReflectionMethods()
-
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     val getMethod = getAllowedNetworkTypesMethod ?: return
                     val setMethod = setAllowedNetworkTypesMethod ?: return
                     var curTypes = getMethod.invoke(iTelephony, subId, reasonUser) as Long
                     curTypes = if (enabled) curTypes or typeNr else curTypes and typeNr.inv()
-
                     if (setMethod.parameterTypes.size >= 4) {
-                        setMethod.invoke(
-                            iTelephony, subId, reasonUser, curTypes, "moe.xzr.fivegtile"
-                        )
+                        setMethod.invoke(iTelephony, subId, reasonUser, curTypes, "moe.xzr.fivegtile")
                     } else {
                         setMethod.invoke(iTelephony, subId, reasonUser, curTypes)
                     }
