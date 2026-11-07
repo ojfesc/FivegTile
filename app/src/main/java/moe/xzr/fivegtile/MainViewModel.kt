@@ -15,6 +15,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         PENDING,
         ROOT_DENIED,
         NOT_COMPATIBLE,
+        MISSING_PERMISSION,
         COMPATIBLE,
     }
 
@@ -41,9 +42,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     value = CompatibilityState.NOT_COMPATIBLE
                 } else {
                     val subId = SubscriptionManager.getDefaultDataSubscriptionId()
+                    // 如果获取不到有效的 subId，极大概率是没有授予 READ_PHONE_STATE 权限
+                    if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+                        value = CompatibilityState.MISSING_PERMISSION
+                        return@bind
+                    }
+                    
                     val compatible = try {
-                        SubscriptionManager.isValidSubscriptionId(subId) &&
-                                controller.compatibilityCheck(subId)
+                        controller.compatibilityCheck(subId)
                     } catch (_: Throwable) {
                         false
                     }
