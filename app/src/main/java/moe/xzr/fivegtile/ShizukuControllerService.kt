@@ -6,7 +6,6 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Shizuku / Sui 后端的 5G 控制服务。
- * 在继承 Java 抽象类时，不写主构造器 ()，而是在下面显式写次构造器。
  */
 class ShizukuControllerService : IFivegController.Stub {
 
@@ -22,7 +21,9 @@ class ShizukuControllerService : IFivegController.Stub {
 
     override fun compatibilityCheckWithMessage(subId: Int): String {
         return try {
-            val output = exec(NetworkCommands.get(subId))
+            val slot = SlotHelper.slotForSubId(subId)
+            if (slot < 0) throw IllegalArgumentException("无法获取卡槽索引，subId=$subId")
+            val output = exec(NetworkCommands.get(slot))
             NetworkCommands.parseMask(output)
             "OK"
         } catch (e: Exception) {
@@ -33,7 +34,9 @@ class ShizukuControllerService : IFivegController.Stub {
 
     override fun getFivegEnabled(subId: Int): Boolean {
         return try {
-            NetworkCommands.hasNr(exec(NetworkCommands.get(subId)))
+            val slot = SlotHelper.slotForSubId(subId)
+            if (slot < 0) return false
+            NetworkCommands.hasNr(exec(NetworkCommands.get(slot)))
         } catch (e: Exception) {
             Log.e(TAG, "getFivegEnabled failed", e)
             false
@@ -42,13 +45,15 @@ class ShizukuControllerService : IFivegController.Stub {
 
     override fun setFivegEnabled(subId: Int, enabled: Boolean) {
         try {
-            val mask = NetworkCommands.parseMask(exec(NetworkCommands.get(subId)))
+            val slot = SlotHelper.slotForSubId(subId)
+            if (slot < 0) throw IllegalArgumentException("无法获取卡槽索引，subId=$subId")
+            val mask = NetworkCommands.parseMask(exec(NetworkCommands.get(slot)))
             val target = if (enabled) mask or NetworkCommands.NR_BIT
             else mask and NetworkCommands.NR_BIT.inv()
             if (target == 0L) {
                 throw IllegalStateException("网络类型为空，请先在系统设置选择自动网络模式")
             }
-            exec(NetworkCommands.set(subId, target))
+            exec(NetworkCommands.set(slot, target))
         } catch (e: Exception) {
             Log.e(TAG, "setFivegEnabled failed", e)
         }
