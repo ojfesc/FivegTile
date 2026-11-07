@@ -30,7 +30,9 @@ android {
             // 优先从环境变量读取（CI 环境），否则保留为空（本地环境回退到 debug）
             def storeFilePath = System.getenv("RELEASE_STORE_FILE")
             if (storeFilePath != null) {
-                storeFile file(storeFilePath)
+                // 使用 rootProject.file 确保相对路径基于仓库根目录解析，
+                // 兼容 CI 工作流解码到根目录的 keystore 以及绝对路径。
+                storeFile rootProject.file(storeFilePath)
                 storePassword System.getenv("RELEASE_STORE_PASSWORD")
                 keyAlias System.getenv("RELEASE_KEY_ALIAS")
                 keyPassword System.getenv("RELEASE_KEY_PASSWORD")
