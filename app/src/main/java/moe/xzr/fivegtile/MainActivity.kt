@@ -41,7 +41,6 @@ class MainActivity : ComponentActivity() {
             if (requestCode == ShizukuBackend.REQUEST_CODE &&
                 grantResult == PackageManager.PERMISSION_GRANTED
             ) {
-                // 授权成功后重建 Activity，让 produceState 重新检测后端。
                 recreate()
             }
         }
@@ -65,10 +64,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    /**
-     * READ_PHONE_STATE 用于把 subId 映射到物理卡槽；
-     * Shizuku 已运行但未授权时，前台请求一次权限。
-     */
     private fun requestRuntimePermissions() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
             != PackageManager.PERMISSION_GRANTED
@@ -199,6 +194,11 @@ class MainActivity : ComponentActivity() {
                 Text(text = stringResource(id = R.string.hint_no_root))
             }
         }
+        AnimatedVisibility(visible = compatibilityState == MainViewModel.CompatibilityState.MISSING_PERMISSION) {
+            ErrorCard(title = stringResource(id = R.string.hint)) {
+                Text(text = "请点击允许“电话”权限，以便读取 SIM 卡信息并切换网络。授权后请重新打开应用。")
+            }
+        }
         AnimatedVisibility(visible = compatibilityState == MainViewModel.CompatibilityState.NOT_COMPATIBLE) {
             ErrorCard(title = stringResource(id = R.string.hint)) {
                 Text(text = stringResource(id = R.string.hint_not_compatible))
@@ -290,7 +290,8 @@ class MainActivity : ComponentActivity() {
                             colorFilter = ColorFilter.tint(
                                 when (it) {
                                     MainViewModel.CompatibilityState.NOT_COMPATIBLE,
-                                    MainViewModel.CompatibilityState.ROOT_DENIED
+                                    MainViewModel.CompatibilityState.ROOT_DENIED,
+                                    MainViewModel.CompatibilityState.MISSING_PERMISSION
                                     -> MaterialTheme.colorScheme.error
                                     else -> MaterialTheme.colorScheme.primary
                                 }
@@ -302,6 +303,7 @@ class MainActivity : ComponentActivity() {
                     text = when (it) {
                         MainViewModel.CompatibilityState.PENDING -> stringResource(id = R.string.compatibility_pending)
                         MainViewModel.CompatibilityState.ROOT_DENIED -> stringResource(id = R.string.compatibility_root_not_granted)
+                        MainViewModel.CompatibilityState.MISSING_PERMISSION -> "缺少权限"
                         MainViewModel.CompatibilityState.NOT_COMPATIBLE -> stringResource(id = R.string.compatibility_not_compatible)
                         MainViewModel.CompatibilityState.COMPATIBLE -> stringResource(id = R.string.compatibility_good)
                     },
