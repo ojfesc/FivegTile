@@ -23,7 +23,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val ret by produceState(initialValue = CompatibilityState.PENDING) {
             val context = getApplication<Application>()
 
-            // detectBackend 内部可能调用 Shell.getShell()，放到 IO 线程。
             val backend = withContext(Dispatchers.IO) {
                 try {
                     BackendController.detectBackend(context)
@@ -40,19 +39,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             BackendController.bind(context) { controller ->
                 if (controller == null) {
                     value = CompatibilityState.NOT_COMPATIBLE
-                    return@bind
-                }
-                val subId = SubscriptionManager.getDefaultDataSubscriptionId()
-                val compatible = try {
-                    SubscriptionManager.isValidSubscriptionId(subId) &&
-                            controller.compatibilityCheck(subId)
-                } catch (_: Throwable) {
-                    false
-                }
-                value = if (compatible) {
-                    CompatibilityState.COMPATIBLE
                 } else {
-                    CompatibilityState.NOT_COMPATIBLE
+                    val subId = SubscriptionManager.getDefaultDataSubscriptionId()
+                    val compatible = try {
+                        SubscriptionManager.isValidSubscriptionId(subId) &&
+                                controller.compatibilityCheck(subId)
+                    } catch (_: Throwable) {
+                        false
+                    }
+                    value = if (compatible) {
+                        CompatibilityState.COMPATIBLE
+                    } else {
+                        CompatibilityState.NOT_COMPATIBLE
+                    }
                 }
             }
         }
