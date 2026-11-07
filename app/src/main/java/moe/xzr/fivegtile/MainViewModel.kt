@@ -11,6 +11,10 @@ import kotlinx.coroutines.withContext
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
+    companion object {
+        var lastErrorMessage: String? = null
+    }
+
     enum class CompatibilityState {
         PENDING,
         ROOT_DENIED,
@@ -42,21 +46,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     value = CompatibilityState.NOT_COMPATIBLE
                 } else {
                     val subId = SubscriptionManager.getDefaultDataSubscriptionId()
-                    // 如果获取不到有效的 subId，极大概率是没有授予 READ_PHONE_STATE 权限
                     if (!SubscriptionManager.isValidSubscriptionId(subId)) {
                         value = CompatibilityState.MISSING_PERMISSION
                         return@bind
                     }
                     
-                    val compatible = try {
-                        controller.compatibilityCheck(subId)
-                    } catch (_: Throwable) {
-                        false
-                    }
-                    value = if (compatible) {
-                        CompatibilityState.COMPATIBLE
-                    } else {
-                        CompatibilityState.NOT_COMPATIBLE
+                    try {
+                        val msg = controller.compatibilityCheckWithMessage(subId)
+                        if (msg == "OK") {
+                            value = CompatibilityState.COMPATIBLE
+                        } else {
+                            lastErrorMessage = msg
+                            value = CompatibilityState.NOT_COMPATIBLE
+                        }
+                    } catch (e: Throwable) {
+                        lastErrorMessage = e.message ?: e.javaClass.simpleName
+                        value = CompatibilityState.NOT_COMPATIBLE
                     }
                 }
             }
