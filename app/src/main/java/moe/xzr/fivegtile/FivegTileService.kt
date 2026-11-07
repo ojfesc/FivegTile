@@ -16,16 +16,16 @@ class FivegTileService : TileService() {
             return@runWithController
         }
 
-        // 每次刷新重新读取默认数据订阅，
-        // 用户在系统设置中切换默认数据卡后 subId 会变化。
         val subId = SubscriptionManager.getDefaultDataSubscriptionId()
         if (!SubscriptionManager.isValidSubscriptionId(subId)) {
             setUnavailable()
             return@runWithController
         }
 
+        val checkResult = it.compatibilityCheckWithMessage(subId)
+
         qsTile.state = when {
-            !it.compatibilityCheck(subId) -> Tile.STATE_UNAVAILABLE
+            checkResult != "OK" -> Tile.STATE_UNAVAILABLE
             it.getFivegEnabled(subId) -> Tile.STATE_ACTIVE
             else -> Tile.STATE_INACTIVE
         }
