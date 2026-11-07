@@ -4,15 +4,18 @@ import android.content.Context
 import android.util.Log
 import java.util.concurrent.TimeUnit
 
-class ShizukuControllerService : IFivegController.Stub {
+/**
+ * Shizuku / Sui 后端的 5G 控制服务。
+ * 注意：类头部保留 () 隐式调用父类无参构造，带 Context 的构造必须委托给 this()。
+ */
+class ShizukuControllerService : IFivegController.Stub() {
 
     companion object {
         private const val TAG = "ShizukuControllerService"
         private const val COMMAND_TIMEOUT_SECONDS = 5L
     }
 
-    constructor() : super()
-    constructor(context: Context) : super()
+    constructor(context: Context) : this()
 
     override fun getBackendType(): Int = 2
 
