@@ -6,23 +6,16 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Shizuku / Sui 后端的 5G 控制服务。
- *
- * 作为 Shizuku UserService 运行，进程身份为 shell（Shizuku 通过 adb 启动）
- * 或 root（Sui / Shizuku root 模式），因此可以执行需要 MODIFY_PHONE_STATE 的
- * cmd phone 命令。
- *
- * Shizuku 通过反射实例化该类，要求存在无参构造函数或 Context 构造函数，
- * 且类本身实现 IInterface.Stub。
  */
-class ShizukuControllerService : IFivegController.Stub {
+class ShizukuControllerService : IFivegController.Stub() {
 
     companion object {
         private const val TAG = "ShizukuControllerService"
         private const val COMMAND_TIMEOUT_SECONDS = 5L
     }
 
-    constructor()
-    constructor(context: Context)
+    constructor() : super()
+    constructor(context: Context) : super()
 
     override fun getBackendType(): Int = 2
 
@@ -70,18 +63,18 @@ class ShizukuControllerService : IFivegController.Stub {
             .redirectErrorStream(true)
             .start()
 
-        val output = try {
-            process.inputStream.bufferedReader().use { it.readText() }.trim()
-        } finally {
-            process.destroy()
-        }
+        val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
 
         if (!process.waitFor(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             process.destroyForcibly()
             throw IllegalStateException("系统命令超时")
         }
-        if (process.exitValue() != 0) {
-            throw IllegalStateException("exit=${process.exitValue()} $output")
+        
+        val exitCode = process.exitValue()
+        process.destroy()
+
+        if (exitCode != 0) {
+            throw IllegalStateException("exit=$exitCode $output")
         }
         return output
     }
