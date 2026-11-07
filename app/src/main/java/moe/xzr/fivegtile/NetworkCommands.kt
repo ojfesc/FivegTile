@@ -18,7 +18,7 @@ object NetworkCommands {
     fun set(slot: Int, mask: Long): String {
         require(slot >= 0) { "invalid slot: $slot" }
         require(mask != 0L) { "network mask empty" }
-        return "cmd phone set-allowed-network-types-for-users -s $slot ${Long.toBinaryString(mask)}"
+        return "cmd phone set-allowed-network-types-for-users -s $slot ${mask.toString(2)}"
     }
 
     fun parseMask(output: String): Long {
